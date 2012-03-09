@@ -1,9 +1,9 @@
 # TiddlyCsv
 TiddlyCsv is a lightweight, low-ceremony csv processing library.
 
-It aims to have as few dependencies and code as possible - but still provide something useful.
+(Well, perhaps one day it will be!)
 
-If you can just drop in a singl
+It aims to have as few dependencies and code as possible - but still provide something useful.
 
 ## Contributors
 * Paul Evans
