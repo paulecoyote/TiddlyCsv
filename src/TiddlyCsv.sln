@@ -5,6 +5,12 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TiddlyCsv", "TiddlyCsv\Tidd
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "TiddlyCsv.Tests", "TiddlyCsv.Tests\TiddlyCsv.Tests.csproj", "{E6EA7CC5-617D-4A59-9964-A1A9C431EEF8}"
 EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Documents", "Documents", "{22B3D0F4-439F-4E42-B801-4C23F5188928}"
+	ProjectSection(SolutionItems) = preProject
+		CustomDictionary.xml = CustomDictionary.xml
+		..\readme.md = ..\readme.md
+	EndProjectSection
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
