@@ -6,6 +6,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Xunit;
+using System.Dynamic;
 
 namespace Tiddly.Tests
 {
@@ -20,6 +21,44 @@ namespace Tiddly.Tests
         public void Dispose()
         {
             stream.Close();
+        }
+
+        [Fact]
+        public void Should_read_document_with_3_columns()
+        {
+            var columns = reader.EndReadDocumentAsColumns(
+                reader.BeginReadDocumentAsColumns(null, null, null));
+
+            Assert.Equal(3, columns.Count);
+        }
+
+        [Fact]
+        public void Should_read_document_with_3_rows()
+        {
+            var columns = reader.EndReadDocumentAsColumns(
+                reader.BeginReadDocumentAsColumns(null, null, null));
+
+            foreach (var row in columns)
+            {
+                Assert.Equal(4, row.Count);            
+            }            
+        }
+
+        [Fact]
+        public void Should_read_document_with_progress_reports()
+        {
+            Int32 counter = 0;
+
+            var columns = reader.EndReadDocumentAsColumns(
+                reader.BeginReadDocumentAsColumns((bytes, col, row) =>
+                    {
+                        Interlocked.Increment(ref counter);
+                        return true;
+                    }, 
+                    null, 
+                    null));
+
+            Assert.Equal(4 * 3, counter);
         }
 
         [Fact] //(Timeout = 10000)]

@@ -1,9 +1,10 @@
 ﻿
 namespace Tiddly
 {
-    using System;
-    using System.IO;
+    using System;    
     using System.Collections.Generic;
+    using System.IO;
+    using System.Linq;
     using System.Text;
     using System.Threading;
 
@@ -26,34 +27,6 @@ namespace Tiddly
 
             this.decoder = streamEncoding.GetDecoder();
             this.stream = stream;
-        }
-
-        /// <summary>
-        /// Read a csv value from the stream.
-        /// </summary>
-        /// <param name="callback">Function to call when operation is complete.</param>
-        /// <param name="state">State available to callback.</param>
-        /// <returns>Async result to be used with EndReadNextValue.</returns>
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Design", "CA1031:DoNotCatchGeneralExceptionTypes",
-            Justification = "Async operations need to catch all exceptions and put them in the async result")]
-        public IAsyncResult BeginReadNextValue(AsyncCallback callback, object state)
-        {
-            var asyncResult = new TiddlyAsyncResult<String>(callback, state);
-            try
-            {
-                if (Thread.VolatileRead(ref isReadOperationPending) != 0)
-                {
-                    throw new InvalidOperationException("Only one read can be in flight at once, or order of bytes read from stream becomes indeterminate");
-                }
-
-                BeginReadNextColumnStringValueFromFileStream(asyncResult);
-            }
-            catch (Exception ex)
-            {
-                asyncResult.Fail(ex, true);
-            }
-
-            return asyncResult;
         }
 
         /// <summary>
@@ -99,6 +72,128 @@ namespace Tiddly
         }
 
         /// <summary>
+        /// Read a csv value from the stream.
+        /// </summary>
+        /// <param name="callback">Function to call when operation is complete.</param>
+        /// <param name="state">State available to callback.</param>
+        /// <returns>Async result to be used with EndReadNextValue.</returns>
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Design", "CA1031:DoNotCatchGeneralExceptionTypes",
+            Justification = "Async operations need to catch all exceptions and put them in the async result")]
+        public IAsyncResult BeginReadNextValue(AsyncCallback callback, object state)
+        {
+            var asyncResult = new TiddlyAsyncResult<String>(callback, state);
+            try
+            {
+                if (Thread.VolatileRead(ref isReadOperationPending) != 0)
+                {
+                    throw new InvalidOperationException("Only one read can be in flight at once, or order of bytes read from stream becomes indeterminate");
+                }
+
+                BeginReadNextColumnStringValueFromFileStream(asyncResult);
+            }
+            catch (Exception ex)
+            {
+                asyncResult.Fail(ex, true);
+            }
+
+            return asyncResult;
+        }
+
+        /// <summary>
+        /// Skips values until the next row is reached.
+        /// </summary>
+        /// <param name="callback">Function to call when operation is complete.</param>
+        /// <param name="state">State available to callback.</param>
+        /// <returns>Async result to be used with EndMoveToNextRow.</returns>
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Performance", "CA1822:MarkMembersAsStatic"), System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Design", "CA1031:DoNotCatchGeneralExceptionTypes",
+            Justification = "Async operations need to catch all exceptions and put them in the async result")]
+        public IAsyncResult BeginReadDocumentAsColumns(Func<Int32, Int32, Int32, Boolean> progressCallback, AsyncCallback callback, object state)
+        {
+            var documentAsyncResult = new TiddlyAsyncResult<IList<IList<String>>>(callback, state);
+            var document = new List<IList<String>>();
+
+            try
+            {                
+                if (Thread.VolatileRead(ref isReadOperationPending) != 0)
+                {
+                    throw new InvalidOperationException("Only one read can be in flight at once, or order of bytes read from stream becomes indeterminate");
+                }
+
+                ReadDocumentColumns(progressCallback, documentAsyncResult, document, 0, 0);
+            }
+            catch (Exception ex)
+            {
+                documentAsyncResult.Fail(ex, true);
+            }
+            
+            return documentAsyncResult;
+        }
+
+        private void ReadDocumentColumns(Func<Int32, Int32, Int32, Boolean> progressCallback, TiddlyAsyncResult<IList<IList<String>>> documentAsyncResult,
+            List<IList<String>> document, int column, int row)
+        {
+            try
+            {
+                BeginReadNextValue(ar =>
+                    {
+                        try
+                        {
+                            var cell = EndReadNextValue(ar);
+                            if (cell == null)
+                            {
+                                if (isEndOfFile)
+                                {
+                                    // Finished reading the document
+                                    documentAsyncResult.Success(document, ar.CompletedSynchronously);
+                                }
+                                else
+                                {
+                                    // Add nulls to columns if row has terminated without populating them.
+                                    for (var i=column; i<document.Count; ++i) { document[i].Add(null); }
+
+                                    // Move to next row and continue reading
+                                    EndMoveToNextRow(BeginMoveToNextRow(null, null));
+                                    ReadDocumentColumns(progressCallback, documentAsyncResult, document, 0, ++row);
+                                }
+                            }
+                            else
+                            {
+                                if (column >= document.Count)
+                                {
+                                    // If we don't have a column, create it
+                                    var newColumn = new List<String>();
+
+                                    // If this column as zinged in to existence later on, populate all above with null
+                                    for (var i=0; i<row-1; ++ i) { newColumn.Add(null); }
+                                    document.Add(newColumn);
+                                }
+
+                                document[column].Add(cell);
+                                if (progressCallback == null || progressCallback(bytesRead, column, row))
+                                {
+                                    ReadDocumentColumns(progressCallback, documentAsyncResult, document, ++column, row);
+                                }
+                                else
+                                {
+                                    // Document reading cancelled at progress callback request
+                                    documentAsyncResult.Success(document, ar.CompletedSynchronously);
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            documentAsyncResult.Fail(ex, true);
+                        } 
+                    },
+                    null);
+            }
+            catch (Exception ex)
+            {
+                documentAsyncResult.Fail(ex, true);
+            }
+        }
+        
+        /// <summary>
         /// Result of move to next row. Must be called in a pair with BeginMoveToNextRow.
         /// </summary>
         /// <param name="asyncResult">Async result from BeginMoveToNextRow.</param>
@@ -125,6 +220,14 @@ namespace Tiddly
         public String EndReadNextValue(IAsyncResult asyncResult, Int32 timeout = 25000) // Timeout.Infinite
         {
             var operation = (TiddlyAsyncResult<String>)asyncResult;
+            return operation.End(timeout);
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Design", "CA1006:DoNotNestGenericTypesInMemberSignatures"), System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Design", "CA1026:DefaultParametersShouldNotBeUsed", Justification = "Only worried about C# clients for the moment")]
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Performance", "CA1822:MarkMembersAsStatic", Justification = "This method is part of the api for the class")]
+        public IList<IList<String>> EndReadDocumentAsColumns(IAsyncResult asyncResult, Int32 timeout = 25000) // Timeout.Infinite
+        {
+            var operation = (TiddlyAsyncResult<IList<IList<String>>>)asyncResult;
             return operation.End(timeout);
         }
 
@@ -381,7 +484,16 @@ namespace Tiddly
                 }
                 else
                 {
-                    throw new InvalidOperationException("Failed to parse csv from stream");
+                    if (bytesRead == 0)
+                    {
+                        // End of file.  Nothing left, success.
+                        // (Probably due to end of line on last line of data)
+                        finalResult.Success(null, far.CompletedSynchronously);
+                    }
+                    else
+                    {
+                        throw new InvalidOperationException("Failed to parse csv from stream");
+                    }                    
                 }
             }
             catch (Exception ex)
