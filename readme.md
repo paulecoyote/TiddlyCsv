@@ -1,19 +1,21 @@
 # TiddlyCsv
-TiddlyCsv is a lightweight, low-ceremony csv processing library.
+TiddlyCsv is a lightweight, low-ceremony, asynchronous and opinionated csv processing library.
 
 ## Features
-* Reads from stream are asyncronous
-* Reads values
-* Skips Rows
+* You need only include a single file rather than the library.
+* Excluding the tests, only references Microsoft.CSharp, System, System.Core.
+* Reads from stream are asyncronous.
+* Reads values!  Including bare, quoted and cells with embedded quotes and commas.
+* Read rows in to plain old data types.
+* Read columns as a list within a list of rows.
+* Skip rows.
 * Passes code analysis with all Microsoft rules on (with a few justifications in source).
-* Only references Microsoft.CSharp, System, System.Core
-* XUnit test project
-** ... though could do with some more tests in there.
+* XUnit test project (though could do with some more tests in there).
 
-## Ideas for future
-* Read rows
-* Read entire document in to list of lists of strings (to allow for variable column lengths)
-* Read in to strongly typed collection of columns
+## Future
+* Benchmark against other libraries
+* Optimise for speed
+* Ensure as much as possible is asynchronous without sacrificing speed
 
 ## Contributors
 * Paul Evans
