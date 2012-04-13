@@ -220,6 +220,165 @@ namespace Tiddly
         }        
 
         /// <summary>
+        /// Populates document with lists of columns.
+        /// </summary>
+        /// <param name="progressCallback">Optional callback communicates row and number, bytes read and opportunity to cancel.</param>
+        /// <param name="documentAsyncResult">Final result to signal when we are done.</param>
+        /// <param name="document">Document to add too.</param>
+        /// <param name="column">Current column index processing.</param>
+        /// <param name="row">Current row index processing.</param>
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Design", "CA1031:DoNotCatchGeneralExceptionTypes")]
+        private void ReadDocumentColumns(Func<Int32, Int32, Int32, Boolean> progressCallback,
+            TiddlyAsyncResult<IList<IList<String>>> documentAsyncResult,
+            List<IList<String>> document,
+            int column,
+            int row)
+        {
+            try
+            {
+                BeginReadNextValue(ar =>
+                    {
+                        try
+                        {
+                            var cell = EndReadNextValue(ar);
+                            if (cell == null)
+                            {
+                                if (isEndOfFile)
+                                {
+                                    // Finished reading the document
+                                    documentAsyncResult.Success(document, ar.CompletedSynchronously);
+                                }
+                                else
+                                {
+                                    // Add nulls to columns if row has terminated without populating them.
+                                    for (var i = column; i < document.Count; ++i) { document[i].Add(null); }
+
+                                    // Move to next row and continue reading
+                                    EndMoveToNextRow(BeginMoveToNextRow(null, null));
+                                    ReadDocumentColumns(progressCallback, documentAsyncResult, document, 0, ++row);
+                                }
+                            }
+                            else
+                            {
+                                if (column >= document.Count)
+                                {
+                                    // If we don't have a column, create it
+                                    var newColumn = new List<String>();
+
+                                    // If this column as zinged in to existence later on, populate all above with null
+                                    for (var i = 0; i < row - 1; ++i) { newColumn.Add(null); }
+                                    document.Add(newColumn);
+                                }
+
+                                document[column].Add(cell);
+
+                                // Continue reading document if not cancelled.
+                                if (progressCallback == null || progressCallback(bytesRead, column, row))
+                                {
+                                    ReadDocumentColumns(progressCallback, documentAsyncResult, document, ++column, row);
+                                }
+                                else
+                                {
+                                    // Document reading cancelled at progress callback request
+                                    documentAsyncResult.Success(document, ar.CompletedSynchronously);
+                                }
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            documentAsyncResult.Fail(ex, true);
+                        }
+                    },
+                    null);
+            }
+            catch (Exception ex)
+            {
+                documentAsyncResult.Fail(ex, true);
+            }
+        }
+
+        /// <summary>
+        /// Populates document with T until the end of the stream.
+        /// </summary>
+        /// <typeparam name="T">Type of instances populated by this method.</typeparam>
+        /// <param name="progressCallback">Optional callback communicates row and number, bytes read and opportunity to cancel.</param>
+        /// <param name="documentAsyncResult">Final result to signal when we are done.</param>
+        /// <param name="document">Document to add too.</param>
+        /// <param name="column">Current column index processing.</param>
+        /// <param name="row">Current row index processing.</param>
+        /// <param name="rowRepSetters">Setters used indexed by column to call.</param>
+        /// <param name="rowRepInstance">Current instance being populated.</param>
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Design", "CA1031:DoNotCatchGeneralExceptionTypes"), System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2208:InstantiateArgumentExceptionsCorrectly")]
+        private void ReadDocumentRows<T>(Func<Int32, Int32, Int32, Boolean> progressCallback,
+            TiddlyAsyncResult<IList<T>> documentAsyncResult,
+            IList<T> document,
+            int column,
+            int row,
+            List<Action<T, String>> rowRepSetters,
+            T rowRepInstance
+            ) where T : new()
+        {
+            try
+            {
+                BeginReadNextValue(ar =>
+                {
+                    try
+                    {
+                        var cell = EndReadNextValue(ar);
+                        if (cell == null)
+                        {                            
+                            if (isEndOfFile)
+                            {
+                                // Finished reading the document
+                                documentAsyncResult.Success(document, ar.CompletedSynchronously);
+                            }
+                            else
+                            {
+                                // Finished populating this instance.
+                                document.Add(rowRepInstance);
+
+                                // Move to next row, first column and continue reading
+                                EndMoveToNextRow(BeginMoveToNextRow(null, null));
+                                ReadDocumentRows(progressCallback, documentAsyncResult, document, 0, ++row, rowRepSetters, new T());
+                            }
+                        }
+                        else
+                        {
+                            if (column >= rowRepSetters.Count)
+                            {
+                                // Unexpected column
+                                throw new ArgumentOutOfRangeException("column", column, "Column without header in row " + row.ToString(System.Globalization.CultureInfo.InvariantCulture));
+                            }
+
+                            // Delegate setting the cell on this instance to the setter actions.
+                            rowRepSetters[column](rowRepInstance, cell);
+
+                            // Continue reading document if not cancelled.
+                            if (progressCallback == null || progressCallback(bytesRead, column, row))
+                            {
+                                ReadDocumentRows(progressCallback, documentAsyncResult, document, ++column, row, rowRepSetters, rowRepInstance);
+                            }
+                            else
+                            {
+                                // Document reading cancelled at progress callback request
+                                documentAsyncResult.Success(document, ar.CompletedSynchronously);
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        documentAsyncResult.Fail(ex, true);
+                    }
+                },
+                null);
+            }
+            catch (Exception ex)
+            {
+                documentAsyncResult.Fail(ex, true);
+            }
+        }
+
+        /// <summary>
         /// Result of move to next row. Must be called in a pair with BeginMoveToNextRow.
         /// </summary>
         /// <param name="asyncResult">Async result from BeginMoveToNextRow.</param>
@@ -569,165 +728,6 @@ namespace Tiddly
         }
 
         /// <summary>
-        /// Populates document with lists of columns.
-        /// </summary>
-        /// <param name="progressCallback">Optional callback communicates row and number, bytes read and opportunity to cancel.</param>
-        /// <param name="documentAsyncResult">Final result to signal when we are done.</param>
-        /// <param name="document">Document to add too.</param>
-        /// <param name="column">Current column index processing.</param>
-        /// <param name="row">Current row index processing.</param>
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Design", "CA1031:DoNotCatchGeneralExceptionTypes")]
-        private void ReadDocumentColumns(Func<Int32, Int32, Int32, Boolean> progressCallback,
-            TiddlyAsyncResult<IList<IList<String>>> documentAsyncResult,
-            List<IList<String>> document,
-            int column,
-            int row)
-        {
-            try
-            {
-                BeginReadNextValue(ar =>
-                {
-                    try
-                    {
-                        var cell = EndReadNextValue(ar);
-                        if (cell == null)
-                        {
-                            if (isEndOfFile)
-                            {
-                                // Finished reading the document
-                                documentAsyncResult.Success(document, ar.CompletedSynchronously);
-                            }
-                            else
-                            {
-                                // Add nulls to columns if row has terminated without populating them.
-                                for (var i = column; i < document.Count; ++i) { document[i].Add(null); }
-
-                                // Move to next row and continue reading
-                                EndMoveToNextRow(BeginMoveToNextRow(null, null));
-                                ReadDocumentColumns(progressCallback, documentAsyncResult, document, 0, ++row);
-                            }
-                        }
-                        else
-                        {
-                            if (column >= document.Count)
-                            {
-                                // If we don't have a column, create it
-                                var newColumn = new List<String>();
-
-                                // If this column as zinged in to existence later on, populate all above with null
-                                for (var i = 0; i < row - 1; ++i) { newColumn.Add(null); }
-                                document.Add(newColumn);
-                            }
-
-                            document[column].Add(cell);
-
-                            // Continue reading document if not cancelled.
-                            if (progressCallback == null || progressCallback(bytesRead, column, row))
-                            {
-                                ReadDocumentColumns(progressCallback, documentAsyncResult, document, ++column, row);
-                            }
-                            else
-                            {
-                                // Document reading cancelled at progress callback request
-                                documentAsyncResult.Success(document, ar.CompletedSynchronously);
-                            }
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        documentAsyncResult.Fail(ex, true);
-                    }
-                },
-                    null);
-            }
-            catch (Exception ex)
-            {
-                documentAsyncResult.Fail(ex, true);
-            }
-        }
-
-        /// <summary>
-        /// Populates document with T until the end of the stream.
-        /// </summary>
-        /// <typeparam name="T">Type of instances populated by this method.</typeparam>
-        /// <param name="progressCallback">Optional callback communicates row and number, bytes read and opportunity to cancel.</param>
-        /// <param name="documentAsyncResult">Final result to signal when we are done.</param>
-        /// <param name="document">Document to add too.</param>
-        /// <param name="column">Current column index processing.</param>
-        /// <param name="row">Current row index processing.</param>
-        /// <param name="rowRepSetters">Setters used indexed by column to call.</param>
-        /// <param name="rowRepInstance">Current instance being populated.</param>
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Design", "CA1031:DoNotCatchGeneralExceptionTypes"), System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2208:InstantiateArgumentExceptionsCorrectly")]
-        private void ReadDocumentRows<T>(Func<Int32, Int32, Int32, Boolean> progressCallback,
-            TiddlyAsyncResult<IList<T>> documentAsyncResult,
-            IList<T> document,
-            int column,
-            int row,
-            List<Action<T, String>> rowRepSetters,
-            T rowRepInstance
-            ) where T : new()
-        {
-            try
-            {
-                BeginReadNextValue(ar =>
-                {
-                    try
-                    {
-                        var cell = EndReadNextValue(ar);
-                        if (cell == null)
-                        {
-                            if (isEndOfFile)
-                            {
-                                // Finished reading the document
-                                documentAsyncResult.Success(document, ar.CompletedSynchronously);
-                            }
-                            else
-                            {
-                                // Finished populating this instance.
-                                document.Add(rowRepInstance);
-
-                                // Move to next row, first column and continue reading
-                                EndMoveToNextRow(BeginMoveToNextRow(null, null));
-                                ReadDocumentRows(progressCallback, documentAsyncResult, document, 0, ++row, rowRepSetters, new T());
-                            }
-                        }
-                        else
-                        {
-                            if (column >= rowRepSetters.Count)
-                            {
-                                // Unexpected column
-                                throw new ArgumentOutOfRangeException("column", column, "Column without header in row " + row.ToString(System.Globalization.CultureInfo.InvariantCulture));
-                            }
-
-                            // Delegate setting the cell on this instance to the setter actions.
-                            rowRepSetters[column](rowRepInstance, cell);
-
-                            // Continue reading document if not cancelled.
-                            if (progressCallback == null || progressCallback(bytesRead, column, row))
-                            {
-                                ReadDocumentRows(progressCallback, documentAsyncResult, document, ++column, row, rowRepSetters, rowRepInstance);
-                            }
-                            else
-                            {
-                                // Document reading cancelled at progress callback request
-                                documentAsyncResult.Success(document, ar.CompletedSynchronously);
-                            }
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        documentAsyncResult.Fail(ex, true);
-                    }
-                },
-                null);
-            }
-            catch (Exception ex)
-            {
-                documentAsyncResult.Fail(ex, true);
-            }
-        }
-
-        /// <summary>
         /// Action taken from BeginRead on Stream
         /// </summary>
         /// <param name="far">Async result from stream.</param>
@@ -945,8 +945,8 @@ namespace Tiddly
             // If event is being used, flag complete
             if (null != asyncWaitHandler) asyncWaitHandler.Set();
 
-            // If we have a call back, call it
-            if (null != callback) callback(this);
+            // If we have a call back, call it.  Call async to prevent stack overflow.
+            if (null != callback) callback.BeginInvoke(this, (ar) => callback.EndInvoke(ar), null);
         }
 
         /// <summary>
