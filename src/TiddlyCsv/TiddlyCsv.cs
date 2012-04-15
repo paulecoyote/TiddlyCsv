@@ -917,6 +917,11 @@ namespace Tiddly
         /// <param name="completedSynchronously"></param>
         internal void Fail(Exception failure, bool completedSynchronously)
         {
+            if (Thread.VolatileRead(ref this.completedState) != CompletePending)
+            {
+                throw new InvalidOperationException("Attempt to overwrite completed result by Fail.");
+            }
+
             // completedSynchronously field MUST be set prior calling the callback
             Thread.VolatileWrite(
                 ref this.completedState,
@@ -926,8 +931,8 @@ namespace Tiddly
             // If event is being used, flag complete
             if (null != asyncWaitHandler) asyncWaitHandler.Set();
 
-            // If we have a call back, call it
-            if (null != callback) callback(this);
+            // If we have a call back, call it.  Do not block waiting for callback to complete.
+            if (null != callback) callback.BeginInvoke(this, (ar) => callback.EndInvoke(ar), null);
         }
 
         /// <summary>
@@ -937,6 +942,12 @@ namespace Tiddly
         /// <param name="completedSynchronously"></param>
         internal void Success(TResult successfulResult, bool completedSynchronously)
         {
+            if (Thread.VolatileRead(ref this.completedState) != CompletePending)
+            {
+                throw new InvalidOperationException("Attempt to overwrite completed result by Success.");
+            }
+
+            // completedSynchronously field MUST be set prior calling the callback
             Thread.VolatileWrite(
                 ref this.completedState,
                 completedSynchronously ? CompletedSynchronouslyState : CompletedAsynchronouslyState);
@@ -945,7 +956,8 @@ namespace Tiddly
             // If event is being used, flag complete
             if (null != asyncWaitHandler) asyncWaitHandler.Set();
 
-            // If we have a call back, call it.  Call async to prevent stack overflow.
+            // If we have a call back, call it.  Do not block waiting for callback to complete.
+            // NOTE: Calling syncronously was causing stack overflow in Document As Rows implementation.
             if (null != callback) callback.BeginInvoke(this, (ar) => callback.EndInvoke(ar), null);
         }
 
