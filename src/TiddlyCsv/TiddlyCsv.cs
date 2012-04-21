@@ -461,7 +461,7 @@ namespace Tiddly
                         }
                         else
                         {
-                            throw new ArgumentOutOfRangeException("readValue", readValue, "Could not parse value");
+                            throw new ArgumentOutOfRangeException("readValue", readValue, "Could not parse Int32 value for column " + propertyName);
                         }
                     };
                 }
@@ -476,7 +476,7 @@ namespace Tiddly
                         }
                         else
                         {
-                            throw new ArgumentOutOfRangeException("readValue", readValue, "Could not parse value");
+                            throw new ArgumentOutOfRangeException("readValue", readValue, "Could not parse Boolean value for column " + propertyName);
                         }
                     };
                 }
@@ -491,7 +491,21 @@ namespace Tiddly
                         }
                         else
                         {
-                            throw new ArgumentOutOfRangeException("readValue", readValue, "Could not parse value");
+                            throw new ArgumentOutOfRangeException("readValue", readValue, "Could not parse Single value for column " + propertyName);
+                        }
+                    };
+                } else if (info.PropertyType == typeof(UInt32))
+                {
+                    setters[propertyName] = (instance, readValue) =>
+                    {
+                        UInt32 parsed;
+                        if (UInt32.TryParse(readValue, out parsed))
+                        {
+                            setMethod.Invoke(instance, new object[] { parsed });
+                        }
+                        else
+                        {
+                            throw new ArgumentOutOfRangeException("readValue", readValue, "Could not parse UInt32 value for column " + propertyName);
                         }
                     };
                 }

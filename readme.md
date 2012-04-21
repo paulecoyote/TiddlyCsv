@@ -15,6 +15,7 @@ TiddlyCsv is a lightweight, low-ceremony, asynchronous and opinionated csv proce
 ## Future
 * Benchmark against other libraries
 * Optimise for speed
+* Improve the code for reading rows in to objects.
 * Ensure as much as possible is asynchronous without sacrificing speed
 
 ## Contributors
