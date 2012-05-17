@@ -460,19 +460,11 @@ namespace Tiddly
         {
             var operation = (TiddlyAsyncResult<IList<T>>)asyncResult;
             return operation.End(Timeout.Infinite);
-            return operation.End(timeout);
         }
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Design", "CA1006:DoNotNestGenericTypesInMemberSignatures"), System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Design", "CA1026:DefaultParametersShouldNotBeUsed", Justification = "Only worried about C# clients for the moment")]
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Performance", "CA1822:MarkMembersAsStatic", Justification = "This method is part of the api for the class")]
         public IList<T> EndReadDocumentAsRows<T>(IAsyncResult asyncResult, Int32 timeout) 
-        {
-            var operation = (TiddlyAsyncResult<IList<T>>)asyncResult;
-        }
-
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Design", "CA1006:DoNotNestGenericTypesInMemberSignatures"), System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Design", "CA1026:DefaultParametersShouldNotBeUsed", Justification = "Only worried about C# clients for the moment")]
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Performance", "CA1822:MarkMembersAsStatic", Justification = "This method is part of the api for the class")]
-        public IList<T> EndReadDocumentAsRows<T>(IAsyncResult asyncResult, Int32 timeout = 25000) // Timeout.Infinite
         {
             var operation = (TiddlyAsyncResult<IList<T>>)asyncResult;
             return operation.End(timeout);
