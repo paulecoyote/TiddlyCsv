@@ -1,4 +1,5 @@
-﻿
+﻿// Define net35 in the build options for the project for Visual Studio 2008 compatibility.
+
 namespace Tiddly
 {
     using System;
@@ -183,7 +184,12 @@ namespace Tiddly
                                 }
 
                                 // Columns headed with white space are ignored
+#if net35
+                                if (!String.IsNullOrEmpty(headerCell))
+#else
                                 if (!String.IsNullOrWhiteSpace(headerCell))
+#endif
+
                                 {
                                     // Keep track of headers so one setter does not overwrite another.                                    
                                     existingHeaders.Add(headerCell);
@@ -385,9 +391,22 @@ namespace Tiddly
         /// <param name="timeout">Timeout for operation before exception is thrown.</param>
         /// <returns>True if at start of new row.</returns>
         /// <remarks>Will block if operation is not yet complete until the timeout is reached.</remarks>
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Design", "CA1026:DefaultParametersShouldNotBeUsed", Justification = "Only worried about C# clients for the moment")]
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Performance", "CA1822:MarkMembersAsStatic", Justification = "This method is part of the api for the class")]
-        public Boolean EndMoveToNextRow(IAsyncResult asyncResult, Int32 timeout = 25000) // Timeout.Infinite
+        public Boolean EndMoveToNextRow(IAsyncResult asyncResult)
+        {
+            var operation = (TiddlyAsyncResult<Boolean>)asyncResult;
+            return operation.End(Timeout.Infinite);
+        }
+
+        /// <summary>
+        /// Result of move to next row. Must be called in a pair with BeginMoveToNextRow.
+        /// </summary>
+        /// <param name="asyncResult">Async result from BeginMoveToNextRow.</param>
+        /// <param name="timeout">Timeout for operation before exception is thrown.</param>
+        /// <returns>True if at start of new row.</returns>
+        /// <remarks>Will block if operation is not yet complete until the timeout is reached.</remarks>
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Performance", "CA1822:MarkMembersAsStatic", Justification = "This method is part of the api for the class")]
+        public Boolean EndMoveToNextRow(IAsyncResult asyncResult, Int32 timeout) 
         {
             var operation = (TiddlyAsyncResult<Boolean>)asyncResult;
             return operation.End(timeout);
@@ -397,23 +416,58 @@ namespace Tiddly
         /// Next csv value.  Must be called in a pair with BeginReadNextValue.
         /// </summary>
         /// <param name="asyncResult">Async result from BeginMoveToNextRow.</param>
+        /// <returns>True if at start of new row.</returns>
+        /// <remarks>Will block if operation is not yet complete until the timeout is reached.</remarks>
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Performance", "CA1822:MarkMembersAsStatic")]
+        public String EndReadNextValue(IAsyncResult asyncResult)
+        {
+            var operation = (TiddlyAsyncResult<String>)asyncResult;
+            return operation.End(Timeout.Infinite);
+        }
+
+        /// <summary>
+        /// Next csv value.  Must be called in a pair with BeginReadNextValue.
+        /// </summary>
+        /// <param name="asyncResult">Async result from BeginMoveToNextRow.</param>
         /// <param name="timeout">Timeout for operation before exception is thrown.</param>
         /// <returns>True if at start of new row.</returns>
         /// <remarks>Will block if operation is not yet complete until the timeout is reached.</remarks>
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Design", "CA1026:DefaultParametersShouldNotBeUsed", Justification = "Only worried about C# clients for the moment")]
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Performance", "CA1822:MarkMembersAsStatic", Justification = "This method is part of the api for the class")]
-        public String EndReadNextValue(IAsyncResult asyncResult, Int32 timeout = 25000) // Timeout.Infinite
+        public String EndReadNextValue(IAsyncResult asyncResult, Int32 timeout) 
         {
             var operation = (TiddlyAsyncResult<String>)asyncResult;
             return operation.End(timeout);
         }
 
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Design", "CA1006:DoNotNestGenericTypesInMemberSignatures"), System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Design", "CA1026:DefaultParametersShouldNotBeUsed", Justification = "Only worried about C# clients for the moment")]
-        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Performance", "CA1822:MarkMembersAsStatic", Justification = "This method is part of the api for the class")]
-        public IList<IList<String>> EndReadDocumentAsColumns(IAsyncResult asyncResult, Int32 timeout = 25000) // Timeout.Infinite
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Design", "CA1006:DoNotNestGenericTypesInMemberSignatures"), 
+        System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Performance", "CA1822:MarkMembersAsStatic", Justification = "This method is part of the api for the class")]
+        public IList<IList<String>> EndReadDocumentAsColumns(IAsyncResult asyncResult)
+        {
+            var operation = (TiddlyAsyncResult<IList<IList<String>>>)asyncResult;
+            return operation.End(Timeout.Infinite);
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Design", "CA1006:DoNotNestGenericTypesInMemberSignatures"), System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Performance", "CA1822:MarkMembersAsStatic", Justification = "This method is part of the api for the class")]
+        public IList<IList<String>> EndReadDocumentAsColumns(IAsyncResult asyncResult, Int32 timeout)
         {
             var operation = (TiddlyAsyncResult<IList<IList<String>>>)asyncResult;
             return operation.End(timeout);
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Design", "CA1006:DoNotNestGenericTypesInMemberSignatures"), System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Design", "CA1026:DefaultParametersShouldNotBeUsed", Justification = "Only worried about C# clients for the moment")]
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Performance", "CA1822:MarkMembersAsStatic", Justification = "This method is part of the api for the class")]
+        public IList<T> EndReadDocumentAsRows<T>(IAsyncResult asyncResult)
+        {
+            var operation = (TiddlyAsyncResult<IList<T>>)asyncResult;
+            return operation.End(Timeout.Infinite);
+            return operation.End(timeout);
+        }
+
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Design", "CA1006:DoNotNestGenericTypesInMemberSignatures"), System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Design", "CA1026:DefaultParametersShouldNotBeUsed", Justification = "Only worried about C# clients for the moment")]
+        [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Performance", "CA1822:MarkMembersAsStatic", Justification = "This method is part of the api for the class")]
+        public IList<T> EndReadDocumentAsRows<T>(IAsyncResult asyncResult, Int32 timeout) 
+        {
+            var operation = (TiddlyAsyncResult<IList<T>>)asyncResult;
         }
 
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Design", "CA1006:DoNotNestGenericTypesInMemberSignatures"), System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Design", "CA1026:DefaultParametersShouldNotBeUsed", Justification = "Only worried about C# clients for the moment")]
@@ -873,6 +927,12 @@ namespace Tiddly
                 if (null == asyncWaitHandler)
                 {
                     var eventSync = new ManualResetEvent(false);
+#if net35
+                    Interlocked.CompareExchange<ManualResetEvent>(
+                        ref asyncWaitHandler,
+                        eventSync,
+                        null);
+#else
                     if (null != Interlocked.CompareExchange<ManualResetEvent>(
                         ref asyncWaitHandler,
                         eventSync,
@@ -883,6 +943,7 @@ namespace Tiddly
                         // access AsyncWaitHandle for the first time. 
                         eventSync.Dispose();
                     }
+#endif
                 }
 
                 return asyncWaitHandler;
@@ -993,7 +1054,9 @@ namespace Tiddly
                 {
                     // Current wait handle no longer required, it has been signaled.
                     Interlocked.CompareExchange<ManualResetEvent>(ref this.asyncWaitHandler, null, waitHandle);
+#if !net35
                     waitHandle.Dispose();
+#endif
                 }
                 else
                 {
