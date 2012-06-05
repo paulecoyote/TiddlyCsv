@@ -1,0 +1,6 @@
+StringVal,BoolVal,IntVal,FloatVal,Ignored
+a,TRUE,,-2.2,ignored
+b,FALSE,,-1,ignored
+c,TRUE,,0,ignored
+d,FALSE,,1,ignored
+é,TRUE,,2.2,ignored

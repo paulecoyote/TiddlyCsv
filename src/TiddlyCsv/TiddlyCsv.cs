@@ -480,11 +480,11 @@ namespace Tiddly
             // Inspect the columns we are interested in
             // This use of reflection will def be a point for optimisation.
             PropertyInfo[] properties = typeof(T).GetProperties();
-            var setters = new Dictionary<String, Action<T, String>>(properties.Length);
-            string propertyName;
+            var setters = new Dictionary<String, Action<T, String>>(properties.Length);            
 
             for (int i = 0; i < properties.Length; ++i)
             {
+                string propertyName;
                 PropertyInfo info = properties[i];
                 var setMethod = info.GetSetMethod();
                 propertyName = info.Name;
@@ -507,7 +507,7 @@ namespace Tiddly
                         }
                         else
                         {
-                            throw new ArgumentOutOfRangeException("readValue", readValue, "Could not parse Int32 value for column " + propertyName);
+                            throw new ArgumentOutOfRangeException(propertyName, readValue, "Could not parse Int32 value for column " + propertyName);
                         }
                     };
                 }
@@ -522,7 +522,7 @@ namespace Tiddly
                         }
                         else
                         {
-                            throw new ArgumentOutOfRangeException("readValue", readValue, "Could not parse Boolean value for column " + propertyName);
+                            throw new ArgumentOutOfRangeException(propertyName, readValue, "Could not parse Boolean value for column " + propertyName);
                         }
                     };
                 }
@@ -537,7 +537,7 @@ namespace Tiddly
                         }
                         else
                         {
-                            throw new ArgumentOutOfRangeException("readValue", readValue, "Could not parse Single value for column " + propertyName);
+                            throw new ArgumentOutOfRangeException(propertyName, readValue, "Could not parse Single value for column " + propertyName);
                         }
                     };
                 } else if (info.PropertyType == typeof(UInt32))
@@ -551,7 +551,7 @@ namespace Tiddly
                         }
                         else
                         {
-                            throw new ArgumentOutOfRangeException("readValue", readValue, "Could not parse UInt32 value for column " + propertyName);
+                            throw new ArgumentOutOfRangeException(propertyName, readValue, "Could not parse UInt32 value for column " + propertyName);
                         }
                     };
                 }
