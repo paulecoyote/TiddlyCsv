@@ -4,9 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
 using Xunit;
-using System.Dynamic;
 
 namespace Tiddly.Tests
 {
@@ -14,15 +12,15 @@ namespace Tiddly.Tests
     {
         public class TestRow
         {
-            public string StringVal {get; set; }
-            public bool BoolVal {get; set; }
-            public int IntVal {get; set; }
-            public float FloatVal {get; set; }        
+            public string StringVal { get; set; }
+            public bool BoolVal { get; set; }
+            public int IntVal { get; set; }
+            public float FloatVal { get; set; }
         }
 
         public ReadAsRowsTests()
         {
-            stream = File.Open("data/rowstest.csv", FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite);
+            stream = File.Open("data/rowstest.csv", FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
             reader = new TiddlyCsvReader(stream);
         }
 

@@ -4,9 +4,7 @@ using System.IO;
 using System.Linq;
 using System.Text;
 using System.Threading;
-using System.Threading.Tasks;
 using Xunit;
-using System.Dynamic;
 
 namespace Tiddly.Tests
 {
@@ -14,7 +12,7 @@ namespace Tiddly.Tests
     {
         public TiddlyCsvTests()
         {
-            stream = File.Open("data/smalltest.csv", FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite);
+            stream = File.Open("data/smalltest.csv", FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
             reader = new TiddlyCsvReader(stream);
         }
 
@@ -40,8 +38,8 @@ namespace Tiddly.Tests
 
             foreach (var row in columns)
             {
-                Assert.Equal(4, row.Count);            
-            }            
+                Assert.Equal(4, row.Count);
+            }
         }
 
         [Fact]
@@ -54,8 +52,8 @@ namespace Tiddly.Tests
                     {
                         Interlocked.Increment(ref counter);
                         return true;
-                    }, 
-                    null, 
+                    },
+                    null,
                     null));
 
             Assert.Equal(4 * 3, counter);
