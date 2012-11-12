@@ -7,21 +7,21 @@ namespace Tiddly.Tests
     using System.Linq;
     using System.Text;
     using System.Threading;
-    using Xunit;
+    using Xunit;    
 
     public class ReadAsRowsBadDataTests : IDisposable
     {
         public class TestRow
         {
-            public string StringVal { get; set; }
-            public bool BoolVal { get; set; }
-            public int IntVal { get; set; }
-            public float FloatVal { get; set; }
+            public string StringVal {get; set; }
+            public bool BoolVal {get; set; }
+            public int IntVal {get; set; }
+            public float FloatVal {get; set; }        
         }
 
         public ReadAsRowsBadDataTests()
         {
-            stream = File.Open("data/badrowstest.csv", FileMode.Open, FileAccess.Read, FileShare.ReadWrite);
+            stream = File.Open("data/badrowstest.csv", FileMode.Open, FileAccess.ReadWrite, FileShare.ReadWrite);            
         }
 
         public void Dispose()
@@ -39,7 +39,7 @@ namespace Tiddly.Tests
                     var reader = new TiddlyCsvReader(stream);
                     var rows = reader.EndReadDocumentAsRows<TestRow>(
                         reader.BeginReadDocumentAsRows<TestRow>(null, null, null), Timeout.Infinite);
-                });
+                });            
         }
 
         [Fact]

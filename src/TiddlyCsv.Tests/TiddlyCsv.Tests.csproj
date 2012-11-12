@@ -66,9 +66,9 @@
     </Content>
   </ItemGroup>
   <ItemGroup>
-    <None Include="data\badrowstest.csv">
+    <Content Include="data\badrowstest.csv">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-    </None>
+    </Content>
   </ItemGroup>
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
   <!-- To modify your build process, add your task inside one of the targets below and uncomment it. 
