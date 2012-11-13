@@ -33,13 +33,16 @@ namespace Tiddly.Tests
         [Fact]
         public void Should_throw_expected_exception_type()
         {
-            Assert.Throws<ArgumentOutOfRangeException>(
-                () =>
-                {
-                    var reader = new TiddlyCsvReader(stream);
-                    var rows = reader.EndReadDocumentAsRows<TestRow>(
-                        reader.BeginReadDocumentAsRows<TestRow>(null, null, null), Timeout.Infinite);
-                });            
+            try
+            {
+                var reader = new TiddlyCsvReader(stream);
+                var rows = reader.EndReadDocumentAsRows<TestRow>(
+                    reader.BeginReadDocumentAsRows<TestRow>(null, null, null), Timeout.Infinite);
+            }
+            catch (Exception ex)
+            {
+                Assert.IsType(typeof(ArgumentOutOfRangeException), ex.InnerException);
+            }
         }
 
         [Fact]
@@ -55,9 +58,9 @@ namespace Tiddly.Tests
                 var rows = reader.EndReadDocumentAsRows<TestRow>(
                     reader.BeginReadDocumentAsRows<TestRow>(null, null, null), Timeout.Infinite);
             }
-            catch (ArgumentOutOfRangeException ex)
+            catch (Exception ex)
             {
-                result = ex;
+                result = (ArgumentOutOfRangeException)ex.InnerException;
             }
 
             // Assert
@@ -77,9 +80,9 @@ namespace Tiddly.Tests
                 var rows = reader.EndReadDocumentAsRows<TestRow>(
                     reader.BeginReadDocumentAsRows<TestRow>(null, null, null), Timeout.Infinite);
             }
-            catch (ArgumentOutOfRangeException ex)
+            catch (Exception ex)
             {
-                result = ex;
+                result = (ArgumentOutOfRangeException)ex.InnerException;
             }
 
             // Assert

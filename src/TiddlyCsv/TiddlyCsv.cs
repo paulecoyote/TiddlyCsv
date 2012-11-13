@@ -117,6 +117,7 @@ namespace Tiddly
         /// <summary>
         /// Skips values until the next row is reached.
         /// </summary>
+        /// <param name="progressCallback">Function used to report progress.</param>
         /// <param name="callback">Function to call when operation is complete.</param>
         /// <param name="state">State available to callback.</param>
         /// <returns>Async result to be used with EndMoveToNextRow.</returns>
@@ -155,7 +156,7 @@ namespace Tiddly
         /// <param name="state"></param>
         /// <returns></returns>
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Design", "CA1004:GenericMethodsShouldProvideTypeParameter"), System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Design", "CA1031:DoNotCatchGeneralExceptionTypes", Justification = "Makes no sense")]
-        public IAsyncResult BeginReadDocumentAsRows<T>(Func<Int32, Int32, Int32, Boolean> progressCallback, AsyncCallback callback, object state) where T : new()
+        public IAsyncResult BeginReadDocumentAsRows<T>(Func<Int32, Int32, Int32, String, Boolean> progressCallback, AsyncCallback callback, object state) where T : new()
         {
             var documentAsyncResult = new TiddlyAsyncResult<IList<T>>(callback, state);
             var document = new List<T>();
@@ -174,10 +175,10 @@ namespace Tiddly
                             var setters = ExtractReadActions<T>();
 
                             // Read first row as headers
-                            // TODO: Reimplement reading first row as non-blocking.
                             var columnSetters = new List<Action<T, String>>();
                             string headerCell = EndReadNextValue(BeginReadNextValue(null, null));
                             var existingHeaders = new List<string>();
+                            int headerColumnIndex = 0;
                             while (null != headerCell)
                             {
                                 if (existingHeaders.Contains(headerCell))
@@ -206,6 +207,12 @@ namespace Tiddly
                                 {
                                     // Keep track of headers so one setter does not overwrite another.                                    
                                     existingHeaders.Add(headerCell);
+                                    if (progressCallback != null)
+                                    {
+                                        progressCallback(bytesRead, headerColumnIndex, -1, headerCell);
+                                    }
+
+                                    ++headerColumnIndex;
                                 }
 
                                 headerCell = EndReadNextValue(BeginReadNextValue(null, null));
@@ -328,7 +335,7 @@ namespace Tiddly
         /// <param name="rowRepSetters">Setters used indexed by column to call.</param>
         /// <param name="rowRepInstance">Current instance being populated.</param>
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Design", "CA1031:DoNotCatchGeneralExceptionTypes"), System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Usage", "CA2208:InstantiateArgumentExceptionsCorrectly")]
-        private void ReadDocumentRows<T>(Func<Int32, Int32, Int32, Boolean> progressCallback,
+        private void ReadDocumentRows<T>(Func<Int32, Int32, Int32, String, Boolean> progressCallback,
             TiddlyAsyncResult<IList<T>> documentAsyncResult,
             IList<T> document,
             int column,
@@ -373,7 +380,7 @@ namespace Tiddly
                             rowRepSetters[column](rowRepInstance, cell);
 
                             // Continue reading document if not cancelled.
-                            if (progressCallback == null || progressCallback(bytesRead, column, row))
+                            if (progressCallback == null || progressCallback(bytesRead, column, row, cell))
                             {
                                 ReadDocumentRows(progressCallback, documentAsyncResult, document, ++column, row, rowRepSetters, rowRepInstance);
                             }
@@ -401,7 +408,6 @@ namespace Tiddly
         /// Result of move to next row. Must be called in a pair with BeginMoveToNextRow.
         /// </summary>
         /// <param name="asyncResult">Async result from BeginMoveToNextRow.</param>
-        /// <param name="timeout">Timeout for operation before exception is thrown.</param>
         /// <returns>True if at start of new row.</returns>
         /// <remarks>Will block if operation is not yet complete until the timeout is reached.</remarks>
         [System.Diagnostics.CodeAnalysis.SuppressMessage("Microsoft.Performance", "CA1822:MarkMembersAsStatic", Justification = "This method is part of the api for the class")]
@@ -566,6 +572,21 @@ namespace Tiddly
                         else
                         {
                             throw new ArgumentOutOfRangeException(propertyName, readValue, "Could not parse UInt32 value for column " + propertyName);
+                        }
+                    };
+                }
+                else if (info.PropertyType == typeof(Double))
+                {
+                    setters[propertyName] = (instance, readValue) =>
+                    {
+                        Double parsed;
+                        if (Double.TryParse(readValue, out parsed))
+                        {
+                            setMethod.Invoke(instance, new object[] { parsed });
+                        }
+                        else
+                        {
+                            throw new ArgumentOutOfRangeException(propertyName, readValue, "Could not parse Double value for column " + propertyName);
                         }
                     };
                 }
@@ -882,7 +903,6 @@ namespace Tiddly
         }
 
         private const Int32 bufferSize = 1 << 16;
-        private readonly Encoding streamEncoding = Encoding.Default;
         private Byte[] byteBuffer = new Byte[bufferSize];
         private UInt32 bufferedSection;
         private Int32 bytesRead;
@@ -898,14 +918,14 @@ namespace Tiddly
     /// <summary>
     /// Async result used by tiddly.
     /// </summary>
-    /// <typeparam name="TState">Type of state</typeparam>
     /// <typeparam name="TResult">Type of result stored</typeparam>
     internal class TiddlyAsyncResult<TResult> : IAsyncResult
     {
         /// <summary>
         /// Constructs a new TiddlyAsyncResult.
         /// </summary>
-        /// <param name="asyncState">Async result passed in to the BeginFoo method</param>
+        /// <param name="callback">Function to call when operation is complete.</param>
+        /// <param name="asyncState">Async result passed in to the BeginFoo method.</param>
         public TiddlyAsyncResult(AsyncCallback callback, object asyncState)
         {
             this.asyncState = asyncState;
@@ -994,8 +1014,8 @@ namespace Tiddly
         /// <summary>
         /// Called by operation to indicate failure
         /// </summary>
-        /// <param name="failure"></param>
-        /// <param name="completedSynchronously"></param>
+        /// <param name="failure">Optional exception explaining fail.</param>
+        /// <param name="completedSynchronously">True if completed without spawning another thread.</param>
         internal void Fail(Exception failure, bool completedSynchronously)
         {
             if (Thread.VolatileRead(ref this.completedState) != CompletePending)
@@ -1012,6 +1032,7 @@ namespace Tiddly
             // If event is being used, flag complete
             if (null != asyncWaitHandler) asyncWaitHandler.Set();
 
+            // NOTE: Calling Succes syncronously was causing stack overflow in Document As Rows implementation.  Being consistent with fail.
             // If we have a call back, call it.  Do not block waiting for callback to complete.
             if (null != callback) callback.BeginInvoke(this, (ar) => callback.EndInvoke(ar), null);
         }
@@ -1019,8 +1040,8 @@ namespace Tiddly
         /// <summary>
         /// Called by operation to indicate success
         /// </summary>
-        /// <param name="successfulResult"></param>
-        /// <param name="completedSynchronously"></param>
+        /// <param name="successfulResult">Resulting data.</param>
+        /// <param name="completedSynchronously">True if completed without spawning another thread.</param>
         internal void Success(TResult successfulResult, bool completedSynchronously)
         {
             if (Thread.VolatileRead(ref this.completedState) != CompletePending)
@@ -1071,7 +1092,7 @@ namespace Tiddly
                 }
             }
 
-            if (null != exception) throw exception;
+            if (null != exception) throw new Exception("Exception while executing async operation.  See inner exception for details.", exception);
 
             return result;
         }
